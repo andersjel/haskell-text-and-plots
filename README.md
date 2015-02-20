@@ -3,7 +3,6 @@
 
 Here is an example:
 ```haskell
-{-# LANGUAGE OverloadedStrings #-}
 import Text.DocL
 import Data.Foldable (fold)
 

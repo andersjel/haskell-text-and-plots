@@ -1,15 +1,9 @@
 module Text.DocL
   ( Doc
-  , Column
-  , col
-  , plot, plot'
-  , plotAdv
-  , text
-  , header
-  , raw
-  , render
-  , renderToFile
-  , hidePoints
+  , text, header, markdown, html
+  , Column, col
+  , plot, plot', rawPlot
+  , render, renderToFile
   ) where
 
 import Data.Aeson                    (ToJSON, object, toJSON, (.=))
@@ -18,17 +12,17 @@ import Data.HashMap.Strict           (insert, unionWith)
 import Data.Monoid
 import Data.Sequence                 (Seq, singleton)
 import Data.String                   (IsString (..))
-import Data.Text                     (Text)
 import Text.Blaze.Html.Renderer.Utf8 (renderHtml)
 import Text.Blaze.Html5              ((!))
 
+import qualified Text.Markdown               as Markdown
 import qualified Data.Aeson                  as Aeson
 import qualified System.IO                   as IO
 import qualified Text.Blaze.Html5            as H
 import qualified Text.Blaze.Html5.Attributes as A
 import qualified Data.ByteString.Lazy        as B
 
-data Node = Chart Aeson.Value | Raw Text | Plain Text | Header Text
+data Node = Chart Aeson.Value | Html H.Html
 newtype Doc = Doc (Seq Node) deriving Monoid
 
 data Column a = Column
@@ -47,7 +41,7 @@ plot :: Foldable f => f a -> Column a -> [Column a] -> Doc
 plot d x ys = plot' d x ys (Aeson.Object mempty)
 
 plot' :: Foldable f => f a -> Column a -> [Column a] -> Aeson.Value -> Doc
-plot' d x ys options = plotAdv $ merge obj options
+plot' d x ys options = rawPlot $ merge obj options
   where
     obj = object
       [ "data" .= object
@@ -57,20 +51,20 @@ plot' d x ys options = plotAdv $ merge obj options
       ]
     f p = toJSON $ map (`_extract` p) (x:ys)
 
-plotAdv :: Aeson.ToJSON a => a -> Doc
-plotAdv = Doc . singleton . Chart . Aeson.toJSON
+rawPlot :: Aeson.ToJSON a => a -> Doc
+rawPlot = Doc . singleton . Chart . Aeson.toJSON
 
-hidePoints :: Aeson.Value
-hidePoints = object ["point" .= object ["show" .= False]]
+html :: H.Html -> Doc
+html = Doc . singleton . Html
 
-text :: Text -> Doc
-text = Doc . singleton . Plain
+text :: String -> Doc
+text = html . H.p . H.toMarkup
 
-raw :: Text -> Doc
-raw = Doc . singleton . Raw
+header :: String -> Doc
+header = html . H.h1 . H.toMarkup
 
-header :: Text -> Doc
-header = Doc . singleton . Header
+markdown :: String -> Doc
+markdown = html . Markdown.markdown Markdown.def . fromString
 
 render :: Doc -> B.ByteString
 render (Doc doc) = renderHtml html
@@ -85,9 +79,7 @@ render (Doc doc) = renderHtml html
           mempty
       H.body $
         foldMap f (zip [(0::Int)..] $ toList doc)
-    f (_, (Plain t)) = H.p $ H.toMarkup t
-    f (_, (Raw t)) = H.preEscapedToMarkup t
-    f (_, (Header t)) = H.h1 $ H.toMarkup t
+    f (_, (Html t)) = t
     f (i, (Chart v)) = divTag <> scriptTag
       where
         name = "plot" <> show i

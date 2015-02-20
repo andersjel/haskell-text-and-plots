@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 import Text.DocL (render, header, text, plot, col)
 import Data.Foldable (fold)
 import qualified Data.ByteString.Lazy as B
