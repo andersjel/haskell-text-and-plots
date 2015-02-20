@@ -2,8 +2,8 @@ module Text.DocL
   ( Doc
   , Column
   , col
-  , chart, chart'
-  , chartAdv
+  , plot, plot'
+  , plotAdv
   , text
   , header
   , raw
@@ -13,7 +13,6 @@ module Text.DocL
   ) where
 
 import Data.Aeson                    (ToJSON, object, toJSON, (.=))
-import Data.ByteString.Lazy          (ByteString, hPut)
 import Data.Foldable
 import Data.HashMap.Strict           (insert, unionWith)
 import Data.Monoid
@@ -27,6 +26,7 @@ import qualified Data.Aeson                  as Aeson
 import qualified System.IO                   as IO
 import qualified Text.Blaze.Html5            as H
 import qualified Text.Blaze.Html5.Attributes as A
+import qualified Data.ByteString.Lazy        as B
 
 data Node = Chart Aeson.Value | Raw Text | Plain Text | Header Text
 newtype Doc = Doc (Seq Node) deriving Monoid
@@ -43,11 +43,11 @@ merge _ x = x
 col :: String -> (a -> Double) -> Column a
 col = Column
 
-chart :: Foldable f => f a -> Column a -> [Column a] -> Doc
-chart d x ys = chart' d x ys (Aeson.Object mempty)
+plot :: Foldable f => f a -> Column a -> [Column a] -> Doc
+plot d x ys = plot' d x ys (Aeson.Object mempty)
 
-chart' :: Foldable f => f a -> Column a -> [Column a] -> Aeson.Value -> Doc
-chart' d x ys options = chartAdv $ merge obj options
+plot' :: Foldable f => f a -> Column a -> [Column a] -> Aeson.Value -> Doc
+plot' d x ys options = plotAdv $ merge obj options
   where
     obj = object
       [ "data" .= object
@@ -57,8 +57,8 @@ chart' d x ys options = chartAdv $ merge obj options
       ]
     f p = toJSON $ map (`_extract` p) (x:ys)
 
-chartAdv :: Aeson.ToJSON a => a -> Doc
-chartAdv = Doc . singleton . Chart . Aeson.toJSON
+plotAdv :: Aeson.ToJSON a => a -> Doc
+plotAdv = Doc . singleton . Chart . Aeson.toJSON
 
 hidePoints :: Aeson.Value
 hidePoints = object ["point" .= object ["show" .= False]]
@@ -72,7 +72,7 @@ raw = Doc . singleton . Raw
 header :: Text -> Doc
 header = Doc . singleton . Header
 
-render :: Doc -> ByteString
+render :: Doc -> B.ByteString
 render (Doc doc) = renderHtml html
   where
     dns = "https://cdnjs.cloudflare.com/ajax/libs/"
@@ -90,7 +90,7 @@ render (Doc doc) = renderHtml html
     f (_, (Header t)) = H.h1 $ H.toMarkup t
     f (i, (Chart v)) = divTag <> scriptTag
       where
-        name = "chart" <> show i
+        name = "plot" <> show i
         divTag = H.div ! A.id (fromString name) $ mempty
         (Aeson.Object obj) = v
         obj' = insert "bindto" (fromString $ "#" <> name) obj
@@ -99,5 +99,4 @@ render (Doc doc) = renderHtml html
           H.preEscapedToMarkup $ "c3.generate(" <> json <> ");"
 
 renderToFile :: FilePath -> Doc -> IO ()
-renderToFile p d = IO.withBinaryFile p IO.WriteMode $
-  \h -> hPut h $ render d
+renderToFile p = B.writeFile p . render
