@@ -1,7 +1,7 @@
 # The text-and-plots package
 *text-and-plots* is a Haskell EDSL to create documents with embedded plots.
 
-Example usage:
+Here is an example:
 ```haskell
 {-# LANGUAGE OverloadedStrings #-}
 import Text.DocL
@@ -17,6 +17,12 @@ main = renderToFile "out.html" $ fold
       , col "n log n - n" $ \n -> n * log n - n ]
   ]
 ```
+
+The above code produces the output:
+> # Stirling's approximation
+> A simple approximation of the factorial function is given by Stirling's approximation.
+>
+> ![a plot](examples/simple-output.png)
 
 ## Details
 
