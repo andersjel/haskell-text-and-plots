@@ -2,7 +2,12 @@ name:                text-and-plots
 version:             0.1.0.0
 synopsis:
   EDSL to create documents with plots based on the C3.js library.
--- description:
+description:
+  Haskell mini-language to create HTML documents with a mixture of markup and
+  plots based on the <http://c3js.org/ C3.js> library. See the
+  <https://github.com/andersjel/haskell-text-and-plots github page> for an
+  introduction.
+website:             https://github.com/andersjel/haskell-text-and-plots
 license:             MIT
 license-file:        LICENSE
 author:              Anders Jellinggaard
