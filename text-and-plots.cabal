@@ -1,5 +1,5 @@
 name:                text-and-plots
-version:             0.1.0.0
+version:             0.1.1.0
 synopsis:
   EDSL to create HTML documents with plots based on the C3.js library.
 description:
@@ -16,6 +16,8 @@ copyright:           (c) 2015 Anders Jellinggaard
 category:            Text
 build-type:          Simple
 cabal-version:       >=1.10
+Extra-source-files:
+  CHANGELOG
 
 source-repository head
   type:     git
@@ -24,7 +26,7 @@ source-repository head
 source-repository this
   type:     git
   location: git://github.com/andersjel/haskell-text-and-plots.git
-  tag:      v0.1.0.0
+  tag:      v0.1.1.0
 
 library
   exposed-modules:
@@ -32,7 +34,7 @@ library
   build-depends:
     aeson                >=0.8.0.0  && <0.9,
     base                 >=4.7.0.0  && <4.8,
-    blaze-html           >=0.7.0.0  && <0.8,
+    blaze-html           >=0.7.0.0  && <0.9,
     bytestring           >=0.10.4.0 && <0.11,
     containers           >=0.5.5.1  && <0.6,
     markdown             >=0.1.7.1  && <0.2,
