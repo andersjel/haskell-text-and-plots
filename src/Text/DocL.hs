@@ -30,7 +30,6 @@ module Text.DocL (
   Column, col, col',
   plot, plot', rawPlot,
   -- * Utilities
-  module Text.DocL.Javascript,
   linspace
   ) where
 
@@ -43,14 +42,13 @@ import Text.Blaze.Html.Renderer.Utf8 (renderHtml)
 import Text.Blaze.Html5              ((!))
 import Text.DocL.Javascript
 
-import qualified Text.Markdown               as Markdown
-import qualified Data.Aeson                  as Aeson
+import qualified Data.ByteString.Lazy        as B
 import qualified System.IO                   as IO
 import qualified Text.Blaze.Html5            as H
 import qualified Text.Blaze.Html5.Attributes as A
-import qualified Data.ByteString.Lazy        as B
+import qualified Text.Markdown               as Markdown
 
-data Node = Chart Obj | Html H.Html
+data Node = Chart [Prop] | Html H.Html
 
 -- | Base type representing a document. This type allows composition via the
 -- 'Monoid' instance.
@@ -66,8 +64,8 @@ data Column a = Column
 -- | Polymorphic version of 'col'. This allows, for instance, 'Int' and 'String'
 -- values to be used in plots. It is up to the caller to ensure that the values
 -- make sense to <http://c3js.org/ C3.js>.
-col' :: ToJSON b => String -> (a -> b) -> Column a
-col' h f = Column h (toJSON . f)
+col' :: ToObj b => String -> (a -> b) -> Column a
+col' h f = Column h (toObj . f)
 
 -- | Data sets are supplied to 'plot' as a collection of elements of type /a/.
 -- This function sets up a 'Column', which knows how to extract one 'Double'
@@ -106,23 +104,23 @@ plot d x ys = plot' d x ys []
 -- See <http://c3js.org/reference.html> for the many properties that can be used
 -- here.
 plot' :: Foldable f => f a -> Column a -> [Column a] -> [Prop] -> Doc
-plot' d x ys options = rawPlot $ merge obj options
+plot' d x ys options = rawPlot $ obj ++ options
   where
-    obj = object
-      [ "data" .= object
-        [ "rows" .= (toJSON (_header x : map _header ys) : map f (toList d))
-        , "x" .= _header x
+    obj =
+      [ "data" /:
+        [ "rows" /: (toObj (_header x : map _header ys) : map f (toList d))
+        , "x" /: _header x
         ]
       ]
-    f p = toJSON $ map (`_extract` p) (x:ys)
+    f p = toObj $ map (`_extract` p) (x:ys)
 
--- | This function sends the supplied json object directly to
+-- | This function sends an object with the supplied properties directly to
 -- <http://c3js.org/ C3.js>. This is the do-it-yourself option which exposes all
 -- of <http://c3js.org/ C3.js>. The object receives a
 -- <http://c3js.org/reference.html#bindto "bindto"> property,
 -- targeting a @\<div\>@ tag placed appropriately.
-rawPlot :: Aeson.ToJSON a => a -> Doc
-rawPlot = Doc . singleton . Chart . Aeson.toJSON
+rawPlot :: [Prop] -> Doc
+rawPlot = Doc . singleton . Chart
 
 -- | Creates a 'Doc' representing raw html.
 html :: H.Html -> Doc
@@ -158,15 +156,14 @@ render (Doc doc) = renderHtml html
       H.body $
         foldMap f (zip [(0::Int)..] $ toList doc)
     f (_, (Html t)) = t
-    f (i, (Chart v)) = divTag <> scriptTag
+    f (i, (Chart props)) = divTag <> scriptTag
       where
         name = "plot" <> show i
         divTag = H.div ! A.id (fromString name) $ mempty
-        (Aeson.Object obj) = v
-        obj' = insert "bindto" (fromString $ "#" <> name) obj
-        json = H.unsafeLazyByteString $ Aeson.encode obj'
+        obj = props ++ ["bindto" /: ("#" ++ name)]
+        js = encode $ toObj obj
         scriptTag = H.script ! A.type_ "text/javascript" $
-          H.preEscapedToMarkup $ "c3.generate(" <> json <> ");"
+          H.preEscapedToMarkup $ "\nc3.generate(" ++ js ++ ");\n"
 
 -- | If the file exists, it will be overwritten.
 renderToFile :: FilePath -> Doc -> IO ()

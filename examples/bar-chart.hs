@@ -1,5 +1,5 @@
-{-# LANGUAGE OverloadedStrings #-}
 import Text.DocL
+import Text.DocL.Javascript
 import Data.Foldable (fold)
 import Data.Aeson (object)
 import qualified Data.ByteString.Lazy as B
@@ -25,6 +25,6 @@ main = B.putStr $ render $ fold
   , plot' monthlyRainfall (col' "month" fst) [col "rainfall (mm)" snd]
       [ "data" /: ["type" /: "bar"]
       , "axis" /:
-        [ "x" /: ["type" /: "catergory"]]
+        [ "x" /: ["type" /: "category"]]
       ]
   ]
