@@ -30,10 +30,10 @@ module Text.DocL (
   Column, col, col',
   plot, plot', rawPlot,
   -- * Utilities
+  module Text.DocL.Javascript,
   linspace
   ) where
 
-import Data.Aeson                    (ToJSON, object, toJSON, (.=))
 import Data.Foldable
 import Data.HashMap.Strict           (insert, unionWith)
 import Data.Monoid
@@ -41,6 +41,7 @@ import Data.Sequence                 (Seq, singleton)
 import Data.String                   (IsString (..))
 import Text.Blaze.Html.Renderer.Utf8 (renderHtml)
 import Text.Blaze.Html5              ((!))
+import Text.DocL.Javascript
 
 import qualified Text.Markdown               as Markdown
 import qualified Data.Aeson                  as Aeson
@@ -49,7 +50,7 @@ import qualified Text.Blaze.Html5            as H
 import qualified Text.Blaze.Html5.Attributes as A
 import qualified Data.ByteString.Lazy        as B
 
-data Node = Chart Aeson.Value | Html H.Html
+data Node = Chart Obj | Html H.Html
 
 -- | Base type representing a document. This type allows composition via the
 -- 'Monoid' instance.
@@ -59,13 +60,8 @@ newtype Doc = Doc (Seq Node) deriving Monoid
 -- details.
 data Column a = Column
   { _header  :: String
-  , _extract :: a -> Aeson.Value
+  , _extract :: a -> Obj
   }
-
--- | Deep merge of two 'Aeson.Value's. Used to merge in options in 'plot''.
-merge :: Aeson.Value -> Aeson.Value -> Aeson.Value
-merge (Aeson.Object x) (Aeson.Object y) = Aeson.Object $ unionWith merge x y
-merge _ x = x
 
 -- | Polymorphic version of 'col'. This allows, for instance, 'Int' and 'String'
 -- values to be used in plots. It is up to the caller to ensure that the values
@@ -95,21 +91,21 @@ col = col'
 -- Plots the data in /ds/ using the column /x/ for the values on the /x/-axis
 -- and with one line on the plot for each column in /ys/. See also 'col'.
 plot :: Foldable f => f a -> Column a -> [Column a] -> Doc
-plot d x ys = plot' d x ys (Aeson.Object mempty)
+plot d x ys = plot' d x ys []
 
--- | Same as 'plot', but takes a final argument which should be a "Data.Aeson"
--- object. This is merged with the configuration object supplied to
--- <http://c3js.org/ C3.js>. This allows the caller to customize the plot.
+-- | Same as 'plot', but takes a final argument which is merged with the
+-- configuration object supplied to <http://c3js.org/ C3.js>. This allows the
+-- caller to customize the plot.
 --
 -- @
 --  -- Plot x² vs x with the points hidden.
 --  plot' [1..10] (col "x" id) [col "x²" $ \\x -> x*x] $
---    object ["point" .= object ["show" .= False]]
+--    ["point" /: ["show" /: False]]
 -- @
 --
 -- See <http://c3js.org/reference.html> for the many properties that can be used
 -- here.
-plot' :: Foldable f => f a -> Column a -> [Column a] -> Aeson.Value -> Doc
+plot' :: Foldable f => f a -> Column a -> [Column a] -> [Prop] -> Doc
 plot' d x ys options = rawPlot $ merge obj options
   where
     obj = object
