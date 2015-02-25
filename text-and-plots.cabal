@@ -8,6 +8,7 @@ description:
   <https://github.com/andersjel/haskell-text-and-plots github page> for an
   introduction.
 homepage:            https://github.com/andersjel/haskell-text-and-plots
+bug-reports:         https://github.com/andersjel/haskell-text-and-plots/issues
 license:             MIT
 license-file:        LICENSE
 author:              Anders Jellinggaard
@@ -16,7 +17,7 @@ copyright:           (c) 2015 Anders Jellinggaard
 category:            Text
 build-type:          Simple
 cabal-version:       >=1.10
-Extra-source-files:
+extra-source-files:
   CHANGELOG
 
 source-repository head
