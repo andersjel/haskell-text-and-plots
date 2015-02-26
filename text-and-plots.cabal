@@ -34,7 +34,6 @@ library
     Text.DocL
     Text.DocL.Javascript
   build-depends:
-    aeson                >=0.8.0.0  && <0.9,
     base                 >=4.7.0.0  && <4.8,
     blaze-html           >=0.7.0.0  && <0.9,
     bytestring           >=0.10.4.0 && <0.11,
