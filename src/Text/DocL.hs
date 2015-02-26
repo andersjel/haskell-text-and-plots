@@ -30,7 +30,9 @@ module Text.DocL (
   Column, col, col',
   plot, plot', rawPlot,
   -- * Utilities
-  linspace
+  linspace,
+  -- * Re-exports from "Text.DocL.Javascript"
+  (/:), javascript
   ) where
 
 import Data.Foldable
@@ -98,7 +100,7 @@ plot d x ys = plot' d x ys []
 -- @
 --  -- Plot x² vs x with the points hidden.
 --  plot' [1..10] (col "x" id) [col "x²" $ \\x -> x*x] $
---    ["point" /: ["show" /: False]]
+--    ["point" //: ["show" //: False]]
 -- @
 --
 -- See <http://c3js.org/reference.html> for the many properties that can be used
@@ -163,7 +165,7 @@ render (Doc doc) = renderHtml html
         obj = props ++ ["bindto" /: ("#" ++ name)]
         js = encode $ toObj obj
         scriptTag = H.script ! A.type_ "text/javascript" $
-          H.preEscapedToMarkup $ "\nc3.generate(" ++ js ++ ");\n"
+          H.preEscapedToMarkup $ "\nc3.generate(" <> js <> ");\n"
 
 -- | If the file exists, it will be overwritten.
 renderToFile :: FilePath -> Doc -> IO ()
