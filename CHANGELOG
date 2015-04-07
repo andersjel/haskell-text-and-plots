@@ -1,3 +1,5 @@
+- 0.2.1.0
+  * Bumped base dependency.
 - 0.2.0.0
   * Using the Text.DocL.Javascript module instead of aeson
     (since not everything we want to ship to C3.js is JSON encodable).

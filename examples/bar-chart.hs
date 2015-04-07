@@ -1,7 +1,6 @@
 import Text.DocL
 import Text.DocL.Javascript
 import Data.Foldable (fold)
-import Data.Aeson (object)
 import qualified Data.ByteString.Lazy as B
 
 monthlyRainfall :: [(String, Double)]

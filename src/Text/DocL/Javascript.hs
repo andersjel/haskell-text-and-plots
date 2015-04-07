@@ -112,7 +112,7 @@ instance ToObj Char where
   toObj c = toObj [c]
   toObjList xs = Scalar . B.toLazyText $ "\"" <> foldMap esc xs <> "\""
     where
-      mustEscape = "\"\\>\n\r\x2028\x2029"
+      mustEscape = "\"\\>\n\r\x2028\x2029" :: String
       esc x =
         if isControl x || elem x mustEscape
           then fromString . printf "\\u%04x" $ ord x
