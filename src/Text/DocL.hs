@@ -26,17 +26,24 @@ module Text.DocL (
   text, header, markdown, html,
   -- * Output
   render, renderToFile,
-  -- * Plotting
+  -- * Row-wise plotting
+  Field, field, field',
+  plotRows, plotRows',
+  -- * Column-wise plotting
   Column, col, col',
-  plot, plot', rawPlot,
+  plotCols, plotCols',
+  -- * Advanced plotting
+  plotRaw,
   -- * Utilities
   linspace,
   -- * Re-exports from "Text.DocL.Javascript"
   (/:), javascript
   ) where
 
+import Control.Exception             (assert)
 import Data.Foldable
 import Data.HashMap.Strict           (insert, unionWith)
+import Data.List                     (transpose)
 import Data.Monoid
 import Data.Sequence                 (Seq, singleton)
 import Data.String                   (IsString (..))
@@ -56,73 +63,117 @@ data Node = Chart [Prop] | Html H.Html
 -- 'Monoid' instance.
 newtype Doc = Doc (Seq Node) deriving Monoid
 
--- | Represent a column of a dataset where each row has type /a/. See 'col' for
--- details.
-data Column a = Column
-  { _header  :: String
-  , _extract :: a -> Obj
+-- | Represent a column of a dataset where each row has type /a/. See 'field'
+-- for details.
+data Field a = Field
+  { _fieldHeader :: String
+  , _extract     :: a -> Obj
   }
 
--- | Polymorphic version of 'col'. This allows, for instance, 'Int' and 'String'
+-- | Polymorphic version of 'field'. This allows, for instance, 'Int' and 'String'
 -- values to be used in plots. It is up to the caller to ensure that the values
 -- make sense to <http://c3js.org/ C3.js>.
-col' :: ToObj b => String -> (a -> b) -> Column a
-col' h f = Column h (toObj . f)
+field' :: ToObj b => String -> (a -> b) -> Field a
+field' h f = Field h (toObj . f)
 
--- | Data sets are supplied to 'plot' as a collection of elements of type /a/.
--- This function sets up a 'Column', which knows how to extract one 'Double'
--- value from each value of type /a/ in the collection.
+-- | Datasets are supplied to 'plotRows' as a list of values. This function
+-- constructs a 'Field' which knows how to extract one 'Double' from each
+-- value in this list.
 --
--- The first argument to 'col' is the header of the column, which is used in the
--- legend of the plot.
+-- The first argument to 'field' is the header of the column, which is used in
+-- the legend of the plot.
 --
 -- The simplest plot that can be created consist of one column for the /x/
--- values and one column for the /y/ values.
+-- values and one column for the /y/ values:
 --
 -- @
 --  -- Plot x² vs x.
---  plot [1..10] (col "x" id) [col "x²" $ \\x -> x*x]
+--  plotRows [1..10] (field "x" id) [field "x²" $ \\x -> x*x]
 -- @
-col :: String -> (a -> Double) -> Column a
-col = col'
+field :: String -> (a -> Double) -> Field a
+field = field'
 
--- | > plot ds x ys
+-- | > plotRows ds x ys
 --
--- Plots the data in /ds/ using the column /x/ for the values on the /x/-axis
--- and with one line on the plot for each column in /ys/. See also 'col'.
-plot :: Foldable f => f a -> Column a -> [Column a] -> Doc
-plot d x ys = plot' d x ys []
+-- Plots the data in /ds/ using the 'Field' /x/ for the values on the /x/-axis
+-- and with one line on the plot for each 'Field' in /ys/. See also 'field'.
+plotRows :: [a] -> Field a -> [Field a] -> Doc
+plotRows d x ys = plotRows' d x ys []
 
--- | Same as 'plot', but takes a final argument which is merged with the
+-- | Same as 'plotRows', but takes a final argument which is merged with the
 -- configuration object supplied to <http://c3js.org/ C3.js>. This allows the
 -- caller to customize the plot.
 --
 -- @
 --  -- Plot x² vs x with the points hidden.
---  plot' [1..10] (col "x" id) [col "x²" $ \\x -> x*x] $
+--  plotRows' [1..10] (field "x" id) [field "x²" $ \\x -> x*x] $
 --    ["point" //: ["show" //: False]]
 -- @
 --
 -- See <http://c3js.org/reference.html> for the many properties that can be used
 -- here.
-plot' :: Foldable f => f a -> Column a -> [Column a] -> [Prop] -> Doc
-plot' d x ys options = rawPlot $ obj ++ options
+plotRows' :: [a] -> Field a -> [Field a] -> [Prop] -> Doc
+plotRows' d x ys = plotCols' (g x) (map g ys)
   where
+    g (Field h f) = Column h (map f d)
+
+-- | Represent a column in the plot. See 'col'.
+data Column = Column
+  { _colHeader :: String
+  , _data      :: [Obj]
+  }
+
+-- | > col h d
+--
+-- Constructs a column with the header /h/ (used in the legend or on the
+-- x-axis) and the data in /d/.
+col :: String -> [Double] -> Column
+col = col'
+
+-- | Polymorphic version of 'col'. This allows, for instance, 'Int' and
+-- 'String' values to be used in plots. It is up to the caller to ensure that
+-- the values make sense to <http://c3js.org/ C3.js>.
+col' :: ToObj a => String -> [a] -> Column
+col' h d = Column h (map toObj d)
+
+plotCols :: Column -> [Column] -> Doc
+plotCols x ys = plotCols' x ys []
+
+-- | Same as 'plotCols', but takes a final argument which is merged with the
+-- configuration object supplied to <http://c3js.org/ C3.js>. This allows the
+-- caller to customize the plot.
+--
+-- @
+--  -- Plot x² vs x with the points hidden.
+--  plotCols [1..10] (col "x" [1..10]) [col "x²" [x*x for x in [1..10]]] $
+--    ["point" //: ["show" //: False]]
+-- @
+--
+-- See <http://c3js.org/reference.html> for the many properties that can be used
+-- here.
+plotCols' :: Column -> [Column] -> [Prop] -> Doc
+plotCols' x@(Column xheader xdata) ys options =
+  let
+    names = map toObj (xheader : map _colHeader ys)
+    values = transpose $ map _data (x:ys)
     obj =
       [ "data" /:
-        [ "rows" /: (toObj (_header x : map _header ys) : map f (toList d))
-        , "x" /: _header x
+        [ "rows" /: (names : values)
+        , "x" /: xheader
         ]
       ]
-    f p = toObj $ map (`_extract` p) (x:ys)
+  in
+    assert (all (== length xdata) $ map (length . _data) ys) $
+      plotRaw $ obj ++ options
+
 
 -- | This function sends an object with the supplied properties directly to
 -- <http://c3js.org/ C3.js>. This is the do-it-yourself option which exposes all
 -- of <http://c3js.org/ C3.js>. The object receives a
 -- <http://c3js.org/reference.html#bindto "bindto"> property,
 -- targeting a @\<div\>@ tag placed appropriately.
-rawPlot :: [Prop] -> Doc
-rawPlot = Doc . singleton . Chart
+plotRaw :: [Prop] -> Doc
+plotRaw = Doc . singleton . Chart
 
 -- | Creates a 'Doc' representing raw html.
 html :: H.Html -> Doc

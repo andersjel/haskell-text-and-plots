@@ -1,4 +1,4 @@
-import Text.DocL (render, header, text, plot, col)
+import Text.DocL (render, header, text, plotRows, field)
 import Data.Foldable (fold)
 import qualified Data.ByteString.Lazy as B
 
@@ -7,7 +7,7 @@ main = B.putStr $ render $ fold
   , text $ fold
       [ "A simple approximation of the factorial function is given by "
       , "Stirling's approximation." ]
-  , plot [1..50] (col "n" id)
-      [ col "log(n!)" $ \n -> sum $ map log [1..n]
-      , col "n log n - n" $ \n -> n * log n - n ]
+  , plotRows [1..50] (field "n" id)
+      [ field "log(n!)" $ \n -> sum $ map log [1..n]
+      , field "n log n - n" $ \n -> n * log n - n ]
   ]

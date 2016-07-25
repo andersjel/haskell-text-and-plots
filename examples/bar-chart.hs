@@ -21,7 +21,7 @@ monthlyRainfall =
 
 main = B.putStr $ render $ fold
   [ header "Monthly rainfall in Greenland"
-  , plot' monthlyRainfall (col' "month" fst) [col "rainfall (mm)" snd]
+  , plotRows' monthlyRainfall (field' "month" fst) [field "rainfall (mm)" snd]
       [ "data" /: ["type" /: "bar"]
       , "axis" /:
         [ "x" /: ["type" /: "category"]]
