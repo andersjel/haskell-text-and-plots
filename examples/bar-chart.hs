@@ -1,5 +1,4 @@
 import Text.DocL
-import Text.DocL.Javascript
 import Data.Foldable (fold)
 import qualified Data.ByteString.Lazy as B
 
@@ -21,9 +20,13 @@ monthlyRainfall =
 
 main = B.putStr $ render $ fold
   [ header "Monthly rainfall in Greenland"
-  , plotRows' monthlyRainfall (field' "month" fst) [field "rainfall (mm)" snd]
-      [ "data" /: ["type" /: "bar"]
-      , "axis" /:
-        [ "x" /: ["type" /: "category"]]
+  , plotRaw
+    [ "data" /:
+      [ "json" /: [ "month"         /: map fst monthlyRainfall
+                  , "rainfall (mm)" /: map snd monthlyRainfall ]
+      , "x"    /: "month"
+      , "type" /: "bar"
       ]
+    , "axis" /: [ "x" /: ["type" /: "category"]]
+    ]
   ]

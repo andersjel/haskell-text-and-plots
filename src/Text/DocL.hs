@@ -31,7 +31,7 @@ module Text.DocL (
   -- ** Modifying a line
   lineType, lineName, lineColor, lineAdjust,
   -- ** Plot options
-  labelX, labelY, option,
+  labelX, labelY, hidePoints, height, width, option,
   -- * Advanced plotting
   plotRaw,
   -- * Utilities
@@ -102,6 +102,13 @@ option = PlotOption
 labelX, labelY :: String -> PlotOption
 labelX s = option ["axis" /: ["x" /: ["label" /: s]]]
 labelY s = option ["axis" /: ["y" /: ["label" /: s]]]
+
+hidePoints :: PlotOption
+hidePoints = option ["point" /: ["show" /: False]]
+
+height, width :: Int -> PlotOption
+height n = option ["size" /: ["height" /: n]]
+width n = option ["size" /: ["width" /: n]]
 
 -- | This function sends an object with the supplied properties directly to
 -- <http://c3js.org/ C3.js>. This is the do-it-yourself option which exposes all
