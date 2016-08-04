@@ -26,12 +26,12 @@ module Text.DocL (
   text, header, markdown, html,
   -- * Output
   render, renderToFile,
-  -- * Row-wise plotting
-  Field, field, field',
-  plotRows, plotRows',
-  -- * Column-wise plotting
-  Column, col, col',
-  plotCols, plotCols',
+  -- * Plotting
+  plot, line,
+  -- ** Modifying a line
+  lineType, lineName, lineColor, lineAdjust,
+  -- ** Plot options
+  labelX, labelY, option,
   -- * Advanced plotting
   plotRaw,
   -- * Utilities
@@ -63,109 +63,45 @@ data Node = Chart [Prop] | Html H.Html
 -- 'Monoid' instance.
 newtype Doc = Doc (Seq Node) deriving Monoid
 
--- | Represent a column of a dataset where each row has type /a/. See 'field'
--- for details.
-data Field a = Field
-  { _fieldHeader :: String
-  , _extract     :: a -> Obj
-  }
+data Line = Line {_line :: String -> String -> [Prop]}
 
--- | Polymorphic version of 'field'. This allows, for instance, 'Int' and 'String'
--- values to be used in plots. It is up to the caller to ensure that the values
--- make sense to <http://c3js.org/ C3.js>.
-field' :: ToObj b => String -> (a -> b) -> Field a
-field' h f = Field h (toObj . f)
+data PlotOption = PlotOption {_plotOption :: [Prop]}
 
--- | Datasets are supplied to 'plotRows' as a list of values. This function
--- constructs a 'Field' which knows how to extract one 'Double' from each
--- value in this list.
---
--- The first argument to 'field' is the header of the column, which is used in
--- the legend of the plot.
---
--- The simplest plot that can be created consist of one column for the /x/
--- values and one column for the /y/ values:
---
--- @
---  -- Plot x² vs x.
---  plotRows [1..10] (field "x" id) [field "x²" $ \\x -> x*x]
--- @
-field :: String -> (a -> Double) -> Field a
-field = field'
-
--- | > plotRows ds x ys
---
--- Plots the data in /ds/ using the 'Field' /x/ for the values on the /x/-axis
--- and with one line on the plot for each 'Field' in /ys/. See also 'field'.
-plotRows :: [a] -> Field a -> [Field a] -> Doc
-plotRows d x ys = plotRows' d x ys []
-
--- | Same as 'plotRows', but takes a final argument which is merged with the
--- configuration object supplied to <http://c3js.org/ C3.js>. This allows the
--- caller to customize the plot.
---
--- @
---  -- Plot x² vs x with the points hidden.
---  plotRows' [1..10] (field "x" id) [field "x²" $ \\x -> x*x] $
---    ["point" //: ["show" //: False]]
--- @
---
--- See <http://c3js.org/reference.html> for the many properties that can be used
--- here.
-plotRows' :: [a] -> Field a -> [Field a] -> [Prop] -> Doc
-plotRows' d x ys = plotCols' (g x) (map g ys)
-  where
-    g (Field h f) = Column h (map f d)
-
--- | Represent a column in the plot. See 'col'.
-data Column = Column
-  { _colHeader :: String
-  , _data      :: [Obj]
-  }
-
--- | > col h d
---
--- Constructs a column with the header /h/ (used in the legend or on the
--- x-axis) and the data in /d/.
-col :: String -> [Double] -> Column
-col = col'
-
--- | Polymorphic version of 'col'. This allows, for instance, 'Int' and
--- 'String' values to be used in plots. It is up to the caller to ensure that
--- the values make sense to <http://c3js.org/ C3.js>.
-col' :: ToObj a => String -> [a] -> Column
-col' h d = Column h (map toObj d)
-
-plotCols :: Column -> [Column] -> Doc
-plotCols x ys = plotCols' x ys []
-
--- | Same as 'plotCols', but takes a final argument which is merged with the
--- configuration object supplied to <http://c3js.org/ C3.js>. This allows the
--- caller to customize the plot.
---
--- @
---  -- Plot x² vs x with the points hidden.
---  plotCols [1..10] (col "x" [1..10]) [col "x²" [x*x for x in [1..10]]] $
---    ["point" //: ["show" //: False]]
--- @
---
--- See <http://c3js.org/reference.html> for the many properties that can be used
--- here.
-plotCols' :: Column -> [Column] -> [Prop] -> Doc
-plotCols' x@(Column xheader xdata) ys options =
+plot :: [Line] -> [PlotOption] -> Doc
+plot items options =
   let
-    names = map toObj (xheader : map _colHeader ys)
-    values = transpose $ map _data (x:ys)
-    obj =
-      [ "data" /:
-        [ "rows" /: (names : values)
-        , "x" /: xheader
-        ]
-      ]
+    itemProps = concatMap itemProp $ zip [0..] items
+    itemProp (n, Line  f) = f ('x' : show n) ('y' : show n)
   in
-    assert (all (== length xdata) $ map (length . _data) ys) $
-      plotRaw $ obj ++ options
+    plotRaw $ itemProps ++ concatMap _plotOption options
 
+line :: [Double] -> [Double] -> Line
+line xs ys =
+  Line $ \x y ->
+    [ "data" /:
+      [ "json" /: [x /: xs, y /: ys]
+      , "xs"   /: [y /: x]
+      ]
+    ]
+
+lineAdjust :: (String -> String -> [Prop]) -> Line -> Line
+lineAdjust f (Line g) = Line $ \x y -> g x y ++ f x y
+
+lineType :: String -> Line -> Line
+lineType t = lineAdjust $ \_ y -> ["data" /: ["types" /: [y /: t]]]
+
+lineName :: String -> Line -> Line
+lineName n = lineAdjust $ \_ y -> ["data" /: ["names" /: [y /: n]]]
+
+lineColor :: String -> Line -> Line
+lineColor c = lineAdjust $ \_ y -> ["data" /: ["colors" /: [y /: c]]]
+
+option :: [Prop] -> PlotOption
+option = PlotOption
+
+labelX, labelY :: String -> PlotOption
+labelX s = option ["axis" /: ["x" /: ["label" /: s]]]
+labelY s = option ["axis" /: ["y" /: ["label" /: s]]]
 
 -- | This function sends an object with the supplied properties directly to
 -- <http://c3js.org/ C3.js>. This is the do-it-yourself option which exposes all
